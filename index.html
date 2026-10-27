@@ -30,11 +30,45 @@ p{margin:0 0 14px}
 .quote{border-left:4px solid var(--accent);background:var(--surface);padding:16px 20px;border-radius:0 14px 14px 0;margin:20px 0}
 footer{text-align:center;color:var(--muted);font-size:14px;padding:28px 20px 40px;border-top:1px solid var(--border)}
 button.t{position:fixed;right:14px;top:calc(14px + env(safe-area-inset-top,0px));z-index:5;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:6px 12px;cursor:pointer;font-size:14px}
+
+.av-wrap{position:fixed;left:14px;top:calc(14px + env(safe-area-inset-top,0px));z-index:6}
+button.av{width:44px;height:44px;border-radius:50%;border:2px solid var(--accent);background:var(--surface);color:var(--text);padding:0;cursor:pointer;overflow:hidden;display:grid;place-items:center;font-size:20px}
+button.av img{width:100%;height:100%;object-fit:cover;display:none}
+button.av.has img{display:block}button.av.has span{display:none}
+.av-pop{position:absolute;left:0;top:54px;width:min(300px,calc(100vw - 28px));background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 20px 40px -20px rgba(0,0,0,.5)}
+.av-pop[hidden]{display:none}
+.av-big{width:96px;height:96px;border-radius:50%;margin:0 auto 12px;border:3px solid var(--accent);background:var(--bg);overflow:hidden;display:grid;place-items:center;font-size:40px}
+.av-big img{width:100%;height:100%;object-fit:cover;display:none}.av-big.has img{display:block}.av-big.has span{display:none}
+.av-pop label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 4px}
+.av-pop input[type=text]{width:100%;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit}
+.av-pop input[type=file]{display:none}
+.av-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.av-row button{flex:1;border-radius:99px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font:inherit;font-size:14px}
+.av-row button.p{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+.av-row button:disabled{opacity:.6;cursor:wait}
+.av-msg{font-size:13px;color:var(--muted);margin:10px 0 0;min-height:1.2em;text-align:center}
+.hello{color:var(--accent);font-weight:600;margin:0 0 10px;min-height:1.7em}
 </style>
 </head>
 <body>
+<div class="av-wrap">
+  <button class="av" id="avBtn" type="button" aria-label="Ảnh đại diện" aria-expanded="false"><img id="avImg" alt=""><span>👤</span></button>
+  <div class="av-pop" id="avPop" hidden>
+    <div class="av-big" id="avBig"><img id="avPrev" alt=""><span>👤</span></div>
+    <label for="avName">Tên hiển thị</label>
+    <input type="text" id="avName" maxlength="30" placeholder="Nhập tên của bạn">
+    <input type="file" id="avFile" accept="image/*">
+    <div class="av-row">
+      <button type="button" id="avPick">Chọn ảnh</button>
+      <button type="button" class="p" id="avSave">Lưu</button>
+    </div>
+    <div class="av-row"><button type="button" id="avDel">Xóa avatar</button></div>
+    <p class="av-msg" id="avMsg"></p>
+  </div>
+</div>
 <button class="t" id="t" aria-label="Đổi giao diện sáng/tối">🌓</button>
 <header class="hero">
+  <p class="hello" id="hello"></p>
   <span class="tag">Avicii · 2014</span>
   <h1>The Nights</h1>
   <p class="sub">Bài hát về sống trọn vẹn từng khoảnh khắc</p>
@@ -70,6 +104,62 @@ button.t{position:fixed;right:14px;top:calc(14px + env(safe-area-inset-top,0px))
 <script>
 (function(){var r=document.documentElement,b=document.getElementById('t');
 b.onclick=function(){var d=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);r.setAttribute('data-theme',d?'light':'dark')};})();
+
+(function(){
+var CLOUD_NAME='dp0hgeij',UPLOAD_PRESET='the_nights_unsigned',KEY='nights_user',SIZE=256,MAX_MB=8;
+var $=function(i){return document.getElementById(i)};
+var btn=$('avBtn'),pop=$('avPop'),img=$('avImg'),prev=$('avPrev'),big=$('avBig'),btnBox=btn,
+    nameEl=$('avName'),file=$('avFile'),msg=$('avMsg'),saveB=$('avSave'),pickB=$('avPick'),delB=$('avDel'),hello=$('hello');
+var user={name:'',avatar:''},pending=null,pendingUrl='';
+try{var u=JSON.parse(localStorage.getItem(KEY)||'null');if(u){user.name=u.name||'';user.avatar=u.avatar||''}}catch(e){}
+function show(src){
+  [img,prev].forEach(function(i){if(src){i.src=src}else{i.removeAttribute('src')}});
+  btnBox.classList.toggle('has',!!src);big.classList.toggle('has',!!src);
+}
+function render(){
+  show(user.avatar);nameEl.value=user.name;
+  hello.textContent=user.name?'Xin chào, '+user.name+' 👋':'';
+}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(user))}catch(e){}}
+function say(t){msg.textContent=t}
+btn.onclick=function(){var o=pop.hidden;pop.hidden=!o;btn.setAttribute('aria-expanded',String(o))};
+document.addEventListener('click',function(e){if(!pop.hidden&&!e.target.closest('.av-wrap')){pop.hidden=true;btn.setAttribute('aria-expanded','false')}});
+pickB.onclick=function(){file.click()};
+function cropSquare(f){
+  return createImageBitmap(f).then(function(bm){
+    var c=document.createElement('canvas');c.width=c.height=SIZE;
+    var s=Math.min(bm.width,bm.height),sx=(bm.width-s)/2,sy=(bm.height-s)/2;
+    c.getContext('2d').drawImage(bm,sx,sy,s,s,0,0,SIZE,SIZE);
+    return new Promise(function(res,rej){c.toBlob(function(b){b?res(b):rej(new Error('Không xử lý được ảnh'))},'image/jpeg',0.9)});
+  });
+}
+file.onchange=function(){
+  var f=file.files[0];if(!f)return;
+  if(!f.type.startsWith('image/')){say('Vui lòng chọn một tệp ảnh.');return}
+  if(f.size>MAX_MB*1024*1024){say('Ảnh quá lớn (tối đa '+MAX_MB+'MB).');return}
+  cropSquare(f).then(function(b){
+    pending=b;if(pendingUrl)URL.revokeObjectURL(pendingUrl);
+    pendingUrl=URL.createObjectURL(b);prev.src=pendingUrl;big.classList.add('has');
+    say('Bấm “Lưu” để lưu avatar.');
+  }).catch(function(e){say('Lỗi: '+e.message)});
+};
+saveB.onclick=function(){
+  var name=nameEl.value.trim().slice(0,30);
+  saveB.disabled=pickB.disabled=true;
+  var job=Promise.resolve(user.avatar);
+  if(pending){
+    say('Đang tải ảnh lên…');
+    var fd=new FormData();fd.append('file',pending,'avatar.jpg');fd.append('upload_preset',UPLOAD_PRESET);
+    job=fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/image/upload',{method:'POST',body:fd})
+      .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error((d.error&&d.error.message)||'Lỗi tải lên');return d.secure_url})});
+  }
+  job.then(function(url){
+    user.avatar=url;user.name=name;pending=null;persist();render();say('Đã lưu ✓');
+  }).catch(function(e){say('Lỗi: '+e.message)}).then(function(){saveB.disabled=pickB.disabled=false;file.value=''});
+};
+delB.onclick=function(){user.avatar='';pending=null;file.value='';persist();render();say('Đã xóa avatar.')};
+render();
+})();
 </script>
 </body>
 </html>
